@@ -259,7 +259,7 @@ if __name__ == '__main__':
 
     data = np.random.rand(300,10000)
 
-    smrs = SMRS(data=data, alpha=5, dim_red=0,norm_type=2,
+    smrs = SMRS(data=data, alpha=5, norm_type=2,
                 verbose=False, thr=10**-8, max_iter=5000,
                 affine=True,
                 PCA=False)
