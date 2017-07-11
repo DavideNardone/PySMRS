@@ -21,7 +21,7 @@ then... run one of the following demo:
 
 `python demo.py (naive example)` <br>
 
-`python demo_video.py` (computationally expensive)`
+`python demo_video.py` (computationally expensive)
 
 # Authors
 
