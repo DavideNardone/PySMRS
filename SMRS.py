@@ -5,29 +5,31 @@ from scipy import linalg
 
 import numpy as np
 import numpy.matlib
-
+import sys
 
 
 class SMRS():
 
-    def __init__(self, data, alpha=10, dim_red=0,norm_type=1,
-                verbose=False, thr=1*10^-7, max_iter=5000,
-                affine=False):
+    def __init__(self, data, alpha=10, norm_type=1,
+                verbose=False, thr=10**-8, max_iter=5000,
+                affine=False,
+                PCA=False, npc=10):
 
         self.data = data
         self.alpha = alpha
-        self.dim_red = dim_red
         self.norm_type=norm_type
         self.verbose = verbose
         self.thr = thr
         self.max_iter = max_iter
         self.affine = affine
+        self.PCA = PCA
+        self.npc = npc
 
         self.num_rows = data.shape[0]
         self.num_columns = data.shape[1]
 
     def computeLambda(self):
-        print ('Compute lambda...')
+        print ('Computing lambda...')
 
         if not self.affine:
             T = np.zeros(self.num_columns)
@@ -232,10 +234,13 @@ class SMRS():
         self.data = self.data - np.matlib.repmat(np.mean(self.data, axis=1), self.num_columns,1).T
         # print (self.data)
 
-        if (self.dim_red != 0):
-            n_comp = params['n_components']
-            pca = PCA(n_components = self.dim_red)
+        if (self.PCA == True):
+            print ('Performing PCA...')
+            pca = PCA(n_components = self.npc)
             self.data = pca.fit_transform(self.data)
+            self.num_columns = self.data.shape[0]
+            self.num_row = self.data.shape[0]
+            self.num_columns = self.data.shape[1]
 
 
         C,_ = self.almLasso_mat_fun()
@@ -256,7 +261,8 @@ if __name__ == '__main__':
 
     smrs = SMRS(data=data, alpha=5, dim_red=0,norm_type=2,
                 verbose=False, thr=10**-8, max_iter=5000,
-                affine=True)
+                affine=True,
+                PCA=False)
 
 
     rep_ind, C = smrs.smrs()
