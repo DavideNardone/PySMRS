@@ -1,11 +1,21 @@
 from __future__ import division
 
 from sklearn.decomposition import PCA
-from scipy import linalg
 
 import numpy as np
 import numpy.matlib
+np.set_printoptions(threshold=np.inf)
+import numpy.matlib
 import sys
+import hdf5storage
+
+import pycuda.autoinit
+import pycuda.gpuarray as gpuarray
+
+import skcuda.linalg as linalg
+import skcuda.misc as misc
+import time
+
 
 
 class SMRS():
@@ -13,7 +23,7 @@ class SMRS():
     def __init__(self, data, alpha=10, norm_type=1,
                 verbose=False, thr=10**-8, max_iter=5000,
                 affine=False,
-                PCA=False, npc=10):
+                PCA=False, npc=10, GPU=False):
 
         self.data = data
         self.alpha = alpha
@@ -24,31 +34,76 @@ class SMRS():
         self.affine = affine
         self.PCA = PCA
         self.npc = npc
+        self.GPU = GPU
 
         self.num_rows = data.shape[0]
         self.num_columns = data.shape[1]
 
+        if(self.GPU==True):
+            linalg.init()
+
+            print (misc.get_current_device())
+
+
     def computeLambda(self):
         print ('Computing lambda...')
 
-        if not self.affine:
-            T = np.zeros(self.num_columns)
-            for i in xrange(0,self.num_columns):
-                yi = self.data[:,i]
-                T[i] = np.linalg.norm(np.dot(yi.T, self.data))
+        _lambda = []
+        T = np.zeros(self.num_columns)
+
+        if (self.GPU == True):
+
+
+            if not self.affine:
+
+                gpu_data = gpuarray.to_gpu(self.data)
+
+                C_gpu = linalg.dot(gpu_data, gpu_data, transa='T')
+
+                for i in xrange(self.num_columns):
+                    T[i] = linalg.norm(C_gpu[:,i])
+            else:
+
+                gpu_data = gpuarray.to_gpu(self.data).astype('f')
+
+                # affine transformation
+                y_mean_gpu = misc.mean(gpu_data,axis=1)
+                # y_mean = np.mean(self.data,axis=1)
+
+                # creating affine matrix to subtract to the data (may encounter problem with strides)
+                aff_mat = np.zeros([self.num_rows,self.num_columns]).astype('f')
+                for i in xrange(0,self.num_columns):
+                    aff_mat[:,i] = y_mean_gpu.get()
+
+                aff_mat_gpu = gpuarray.to_gpu(aff_mat)
+                gpu_data_aff = misc.subtract(aff_mat_gpu,gpu_data)
+
+
+                C_gpu = linalg.dot(gpu_data, gpu_data_aff, transa='T')
+
+                #computing euclidean norm
+                for i in xrange(self.num_columns):
+                    T[i] = linalg.norm(C_gpu[:,i])
+
         else:
-            T = np.zeros(self.num_columns)
 
-            for i in xrange(0, self.num_columns):
-                yi = self.data[:, i]
-                y_mean = np.mean(self.data,axis=1)
-                # print ('iteration %d/%d...' % (i,self.num_columns) )
-                # norm(yi' * (ymean*ones(1,N)-Y));
-                T[i] = np.linalg.norm(np.dot(yi.T, np.outer(y_mean, np.ones(self.num_columns)) - self.data))
+            if not self.affine:
 
-        _lamda = np.amax(T)
+                T = np.linalg.norm(np.dot(self.data.T, self.data), axis=1)
 
-        return _lamda
+            else:
+                #affine transformation
+                y_mean = np.mean(self.data, axis=1)
+
+                tmp_mat = np.outer(y_mean, np.ones(self.num_columns)) - self.data
+
+                T = np.linalg.norm(np.dot(self.data.T, tmp_mat),axis=1)
+
+        _lambda = np.amax(T)
+
+        # print (_lambda)
+        return _lambda
+
 
     def shrinkL1Lq(self, C1, _lambda):
 
@@ -104,13 +159,16 @@ class SMRS():
         thr1 = self.thr
         thr2 = self.thr
 
+        start_time = time.time()
         mu1p = alpha1 * 1/self.computeLambda()
+        print("TIME = %s seconds" % (time.time() - start_time))
+        sys.exit()
         mu2p = alpha2 * 1
 
         mu1 = mu1p
         mu2 = mu2p
         P = self.data.T.dot(self.data)
-        A = linalg.inv(np.multiply(mu1,P) +  np.multiply(mu2, np.eye(self.num_columns, dtype=int)) +  np.multiply(mu2, np.ones([self.num_columns,self.num_columns]) ))
+        A = np.linalg.inv(np.multiply(mu1,P) +  np.multiply(mu2, np.eye(self.num_columns, dtype=int)) +  np.multiply(mu2, np.ones([self.num_columns,self.num_columns]) ))
 
         C1 = np.zeros([self.num_columns,self.num_columns])
         lambda2 = np.zeros([self.num_columns, self.num_columns])
@@ -229,10 +287,7 @@ class SMRS():
         thrP = 0.95
 
         #data normalization
-
-        # print(np.mean(self.data, axis=1))
         self.data = self.data - np.matlib.repmat(np.mean(self.data, axis=1), self.num_columns,1).T
-        # print (self.data)
 
         if (self.PCA == True):
             print ('Performing PCA...')
@@ -257,12 +312,12 @@ if __name__ == '__main__':
     # mc = hdf5storage.loadmat('/home/davidenardone/PySMRS/data.mat')
     # data = mc['data']
 
-    data = np.random.rand(300,10000)
+    data = np.random.rand(30,30000).astype('f')
 
     smrs = SMRS(data=data, alpha=5, norm_type=2,
                 verbose=False, thr=10**-8, max_iter=5000,
                 affine=True,
-                PCA=False)
+                PCA=False, GPU=True)
 
 
     rep_ind, C = smrs.smrs()
