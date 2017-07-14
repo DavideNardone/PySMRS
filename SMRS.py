@@ -11,11 +11,11 @@ import hdf5storage
 import scipy.io
 import pycuda.autoinit
 import pycuda.gpuarray as gpuarray
-
 import skcuda.linalg as linalg
 import skcuda.misc as misc
 import time
 
+#TODO: heck if a python module exists without importing it ---> (https://stackoverflow.com/questions/14050281/how-to-check-if-a-python-module-exists-without-importing-it)
 
 
 class SMRS():
