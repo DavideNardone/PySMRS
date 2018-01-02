@@ -31,7 +31,7 @@ def plot_sparsness(C):
 
 if __name__ == '__main__':
 
-    vidcap = cv2.VideoCapture('/Users/davidenardone/PycharmProjects/SMRS/dataset/Society Raffles.mp4')
+    vidcap = cv2.VideoCapture('/Users/davidenardone/Desktop/video/Society Raffles.mp4')
 
     success, image = vidcap.read()
     count = 0
@@ -62,13 +62,13 @@ if __name__ == '__main__':
     print ('Extracting the representatives frames from the video...It may takes a while...')
     start_time = time.time()
     smrs = SMRS(data=Y, alpha=2, norm_type=2,
-                verbose=True, thr=10**-7, max_iter=5000,
+                verbose=True, thr=[10**-7], max_iter=5000,
                 affine=True,
-                PCA=False, GPU=False)
+                PCA=False)
 
-    rep_ind, C = smrs.smrs()
+    sInd, repInd, C = smrs.smrs()
 
-    subPlotsRepInd(Y,rep_ind)
+    subPlotsRepInd(Y,repInd)
 
     plot_sparsness(C)
 
