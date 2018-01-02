@@ -9,10 +9,6 @@ import numpy.matlib
 import sys
 import hdf5storage
 import scipy.io
-import pycuda.autoinit
-import pycuda.gpuarray as gpuarray
-import skcuda.linalg as linalg
-import skcuda.misc as misc
 import time
 from matplotlib import pyplot as plt
 
@@ -36,13 +32,10 @@ class SMRS():
         self.normalize = normalize
         self.PCA = PCA
         self.npc = npc
-        self.GPU = GPU
 
         self.num_rows = data.shape[0]
         self.num_columns = data.shape[1]
 
-        if(self.GPU==True):
-            linalg.init()
 
 
     def computeLambda(self):
@@ -51,57 +44,18 @@ class SMRS():
         _lambda = []
         T = np.zeros(self.num_columns)
 
-        if (self.GPU == True):
 
+        if not self.affine:
 
-            if not self.affine:
-
-                gpu_data = gpuarray.to_gpu(self.data)
-
-
-                C_gpu = linalg.dot(gpu_data, gpu_data, transa='T')
-
-                for i in xrange(self.num_columns):
-                    T[i] = linalg.norm(C_gpu[i,:]) #(rows ???)
-
-            else:
-
-                gpu_data = gpuarray.to_gpu(self.data)
-
-                # affine transformation
-                y_mean_gpu = misc.mean(gpu_data,axis=1)
-
-                # y_mean = np.mean(self.data,axis=1)
-
-                # creating affine matrix to subtract to the data (may encounter problem with strides)
-                aff_mat = np.zeros([self.num_rows,self.num_columns]).astype('f')
-                for i in xrange(0,self.num_columns):
-                    aff_mat[:,i] = y_mean_gpu.get()
-
-
-                aff_mat_gpu = gpuarray.to_gpu(aff_mat)
-                gpu_data_aff = misc.subtract(aff_mat_gpu,gpu_data)
-
-
-                C_gpu = linalg.dot(gpu_data, gpu_data_aff, transa='T')
-
-                #computing euclidean norm (rows ???)
-                for i in xrange(self.num_columns):
-                    T[i] = linalg.norm(C_gpu[i,:])
+            T = np.linalg.norm(np.dot(self.data.T, self.data), axis=1)
 
         else:
+            #affine transformation
+            y_mean = np.mean(self.data, axis=1)
 
-            if not self.affine:
+            tmp_mat = np.outer(y_mean, np.ones(self.num_columns)) - self.data
 
-                T = np.linalg.norm(np.dot(self.data.T, self.data), axis=1)
-
-            else:
-                #affine transformation
-                y_mean = np.mean(self.data, axis=1)
-
-                tmp_mat = np.outer(y_mean, np.ones(self.num_columns)) - self.data
-
-                T = np.linalg.norm(np.dot(self.data.T, tmp_mat),axis=1)
+            T = np.linalg.norm(np.dot(self.data.T, tmp_mat),axis=1)
 
         _lambda = np.amax(T)
 
@@ -205,221 +159,83 @@ class SMRS():
         # C2 = []
 
         start_time = time.time()
-        if self.GPU == True:
 
 
-            # defining penalty parameters e constraint to minimize, lambda and C matrix respectively
-            THETA = misc.zeros((self.num_columns,self.num_columns),dtype='float64')
-            lambda2 = misc.zeros((self.num_columns,self.num_columns),dtype='float64')
+        # defining penalty parameters e constraint to minimize, lambda and C matrix respectively
+        THETA = np.zeros([self.num_columns, self.num_columns])
+        lambda2 = np.zeros([self.num_columns, self.num_columns])
 
-            gpu_data = gpuarray.to_gpu(self.data)
-            P_GPU = linalg.dot(gpu_data,gpu_data,transa='T')
 
-            OP1 = P_GPU
-            linalg.scale(np.float32(mu1), OP1)
+        P = self.data.T.dot(self.data)
+        OP1 = np.multiply(P, mu1)
 
-            OP2 = linalg.eye(self.num_columns)
-            linalg.scale(mu2,OP2)
+        if self.affine == True:
 
-            if self.affine == True:
+            # INITIALIZATION
+            lambda3 = np.zeros(self.num_columns).T
 
-                print ('GPU affine...')
+            A = np.linalg.inv(np.multiply(mu1,P) +  np.multiply(mu2, np.eye(self.num_columns, dtype=int)) +  np.multiply(mu2, np.ones([self.num_columns,self.num_columns]) ))
 
-                OP3 = misc.ones((self.num_columns, self.num_columns), dtype='float64')
-                linalg.scale(mu2, OP3)
-                lambda3 = misc.zeros((1, self.num_columns), dtype='float64')
+            OP3 = np.multiply(mu2, np.ones([self.num_columns, self.num_columns]))
 
+            while ( (err1 > thr1 or err2 > thr1) and i < self.max_iter):
 
-                # TODO: Because of some problem with linalg.inv version of scikit-cuda we fix it using np.linalg.inv of numpy
-                A = np.linalg.inv(misc.add(misc.add(OP1.get(), OP2.get()), OP3.get()))
+                # updating Bheta
+                OP2 = np.multiply(THETA - np.divide(lambda2,mu2), mu2)
+                OP4 = np.matlib.repmat(lambda3, self.num_columns, 1)
+                BHETA = A.dot(OP1 + OP2 + OP3 + OP4 )
 
-                A_GPU = gpuarray.to_gpu(A)
+                # updating C
+                THETA = BHETA + np.divide(lambda2,mu2)
+                THETA = self.shrinkL1Lq(THETA, 1/mu2)
 
-                while ( (err1 > thr1 or err2 > thr1) and i < self.max_iter):
+                # updating Lagrange multipliers
+                lambda2 = lambda2 + np.multiply(mu2,BHETA - THETA)
+                lambda3 = lambda3 + np.multiply(mu2, np.ones([1,self.num_columns]) - np.sum(BHETA,axis=0))
 
-                    _lambda2 = gpuarray.to_gpu(lambda2)
-                    _lambda3 = gpuarray.to_gpu(lambda3)
+                err1 = self.errorCoef(BHETA, THETA)
+                err2 = self.errorCoef(np.sum(BHETA,axis=0), np.ones([1, self.num_columns]))
 
-                    linalg.scale(1/mu2, _lambda2)
-                    term_OP2 = gpuarray.to_gpu(_lambda2.get())
+                # reporting errors
+                if (self.verbose and  (i % self.step == 0)):
+                    print('Iteration = %d, ||Z - C|| = %2.5e, ||1 - C^T 1|| = %2.5e' % (i, err1, err2))
+                i += 1
 
-                    OP2 = gpuarray.to_gpu(misc.subtract(THETA, term_OP2))
-                    linalg.scale(mu2,OP2)
+            Err = [err1, err2]
 
-                    OP4 = gpuarray.to_gpu(np.matlib.repmat(_lambda3.get(), self.num_columns, 1))
+            if(self.verbose):
+                print ('Terminating ADMM at iteration %5.0f, \n ||Z - C|| = %2.5e, ||1 - C^T 1|| = %2.5e. \n' % (i, err1,err2))
 
-                    # updating Z
-                    BHETA = linalg.dot(A_GPU,misc.add(misc.add(misc.add(OP1,OP2),OP3),OP4))
 
-                    # updating C
-                    THETA = misc.add(BHETA,term_OP2)
+        else:
+            print 'CPU not affine'
 
-                    THETA = self.shrinkL1Lq(THETA.get(),1/mu2)
-                    THETA = THETA.astype('float64')
+            A = np.linalg.inv(OP1 +  np.multiply(mu2, np.eye(self.num_columns, dtype=int)))
 
-                    # updating Lagrange multipliers
-                    term_lambda2 = misc.subtract(BHETA, gpuarray.to_gpu(THETA))
+            while ( err1 > thr1 and i < self.max_iter):
 
-                    linalg.scale(mu2,term_lambda2)
+                # updating Z
+                OP2 = np.multiply(mu2, THETA) - lambda2
+                BHETA = A.dot(OP1 + OP2)
 
-                    term_lambda2 = gpuarray.to_gpu(term_lambda2.get())
+                # updating C
+                THETA = BHETA + np.divide(lambda2, mu2)
+                THETA = self.shrinkL1Lq(THETA, 1/mu2)
 
-                    lambda2 = misc.add(lambda2, term_lambda2) # on GPU
+                # updating Lagrange multipliers
+                lambda2 = lambda2 + np.multiply(mu2,BHETA - THETA)
 
+                # computing errors
+                err1 = self.errorCoef(BHETA, THETA)
 
-                    term_lambda3 = misc.subtract(misc.ones((1, self.num_columns), dtype='float64'), misc.sum(BHETA,axis=0))
-                    linalg.scale(mu2,term_lambda3)
-                    term_lambda3 = gpuarray.to_gpu(term_lambda3.get())
-                    lambda3 = misc.add(lambda3, term_lambda3) # on GPU
+                # reporting errors
+                if (self.verbose and  (i % self.step == 0)):
+                    print('Iteration %5.0f, ||Z - C|| = %2.5e' % (i, err1))
+                i += 1
 
-                    err1 = self.errorCoef(BHETA.get(), THETA)
-                    err2 = self.errorCoef(np.sum(BHETA.get(), axis=0), np.ones([1, self.num_columns]))
-
-                    THETA = gpuarray.to_gpu((THETA))
-
-
-                    # reporting errors
-                    if (self.verbose and  (i % self.step == 0)):
-                        print('Iteration = %d, ||Z - C|| = %2.5e, ||1 - C^T 1|| = %2.5e' % (i, err1, err2))
-                    i += 1
-
-                THETA = THETA.get()
-
-                Err = [err1, err2]
-                if(self.verbose):
-                    print ('Terminating ADMM at iteration %5.0f, \n ||Z - C|| = %2.5e, ||1 - C^T 1|| = %2.5e. \n' % (i, err1, err2))
-
-            else:
-                print 'GPU not affine'
-
-                # TODO: Because of some problem with linalg.inv version of scikit-cuda we fix it using np.linalg.inv of numpy
-                A = np.linalg.inv(misc.add(OP1.get(), OP2.get()))
-                A_GPU = gpuarray.to_gpu(A)
-
-                while ( err1 > thr1 and i < self.max_iter):
-
-                    _lambda2 = gpuarray.to_gpu(lambda2)
-
-
-                    term_OP2 = THETA
-                    linalg.scale(mu2, term_OP2)
-
-                    term_OP2 = misc.subtract(term_OP2, _lambda2)
-
-                    OP2 = gpuarray.to_gpu(term_OP2.get())
-
-
-                    BHETA = linalg.dot(A_GPU, misc.add(OP1 , OP2))
-
-                    linalg.scale(1 / mu2, _lambda2)
-                    term_THETA = gpuarray.to_gpu(_lambda2.get())
-
-                    THETA = misc.add(BHETA,term_THETA)
-                    THETA = self.shrinkL1Lq(THETA.get(),1/mu2)
-
-                    THETA = THETA.astype('float32')
-
-
-                    # updating Lagrange multipliers
-                    term_lambda2 = misc.subtract(BHETA, gpuarray.to_gpu(THETA))
-                    linalg.scale(mu2,term_lambda2)
-                    term_lambda2 = gpuarray.to_gpu(term_lambda2.get())
-                    lambda2 = misc.add(lambda2, term_lambda2) # on GPU
-
-
-                    err1 = self.errorCoef(BHETA.get(), THETA)
-
-                    THETA = gpuarray.to_gpu((THETA))
-
-                    # reporting errors
-                    if (self.verbose and  (i % step == 0)):
-                        print('Iteration %5.0f, ||Z - C|| = %2.5e' % (i, err1))
-                    i += 1
-
-
-                THETA = THETA.get()
-                Err = [err1, err2]
-                if(self.verbose):
-                    print ('Terminating ADMM at iteration %5.0f, \n ||Z - C|| = %2.5e' % (i, err1))
-
-        else: #CPU version
-
-
-            # defining penalty parameters e constraint to minimize, lambda and C matrix respectively
-            THETA = np.zeros([self.num_columns, self.num_columns])
-            lambda2 = np.zeros([self.num_columns, self.num_columns])
-
-
-            P = self.data.T.dot(self.data)
-            OP1 = np.multiply(P, mu1)
-
-            if self.affine == True:
-
-                # INITIALIZATION
-                lambda3 = np.zeros(self.num_columns).T
-
-                A = np.linalg.inv(np.multiply(mu1,P) +  np.multiply(mu2, np.eye(self.num_columns, dtype=int)) +  np.multiply(mu2, np.ones([self.num_columns,self.num_columns]) ))
-
-                OP3 = np.multiply(mu2, np.ones([self.num_columns, self.num_columns]))
-
-                while ( (err1 > thr1 or err2 > thr1) and i < self.max_iter):
-
-                    # updating Bheta
-                    OP2 = np.multiply(THETA - np.divide(lambda2,mu2), mu2)
-                    OP4 = np.matlib.repmat(lambda3, self.num_columns, 1)
-                    BHETA = A.dot(OP1 + OP2 + OP3 + OP4 )
-
-                    # updating C
-                    THETA = BHETA + np.divide(lambda2,mu2)
-                    THETA = self.shrinkL1Lq(THETA, 1/mu2)
-
-                    # updating Lagrange multipliers
-                    lambda2 = lambda2 + np.multiply(mu2,BHETA - THETA)
-                    lambda3 = lambda3 + np.multiply(mu2, np.ones([1,self.num_columns]) - np.sum(BHETA,axis=0))
-
-                    err1 = self.errorCoef(BHETA, THETA)
-                    err2 = self.errorCoef(np.sum(BHETA,axis=0), np.ones([1, self.num_columns]))
-
-                    # reporting errors
-                    if (self.verbose and  (i % self.step == 0)):
-                        print('Iteration = %d, ||Z - C|| = %2.5e, ||1 - C^T 1|| = %2.5e' % (i, err1, err2))
-                    i += 1
-
-                Err = [err1, err2]
-
-                if(self.verbose):
-                    print ('Terminating ADMM at iteration %5.0f, \n ||Z - C|| = %2.5e, ||1 - C^T 1|| = %2.5e. \n' % (i, err1,err2))
-
-
-            else:
-                print 'CPU not affine'
-
-                A = np.linalg.inv(OP1 +  np.multiply(mu2, np.eye(self.num_columns, dtype=int)))
-
-                while ( err1 > thr1 and i < self.max_iter):
-
-                    # updating Z
-                    OP2 = np.multiply(mu2, THETA) - lambda2
-                    BHETA = A.dot(OP1 + OP2)
-
-                    # updating C
-                    THETA = BHETA + np.divide(lambda2, mu2)
-                    THETA = self.shrinkL1Lq(THETA, 1/mu2)
-
-                    # updating Lagrange multipliers
-                    lambda2 = lambda2 + np.multiply(mu2,BHETA - THETA)
-
-                    # computing errors
-                    err1 = self.errorCoef(BHETA, THETA)
-
-                    # reporting errors
-                    if (self.verbose and  (i % self.step == 0)):
-                        print('Iteration %5.0f, ||Z - C|| = %2.5e' % (i, err1))
-                    i += 1
-
-                Err = [err1, err2]
-                if(self.verbose):
-                    print ('Terminating ADMM at iteration %5.0f, \n ||Z - C|| = %2.5e' % (i, err1))
+            Err = [err1, err2]
+            if(self.verbose):
+                print ('Terminating ADMM at iteration %5.0f, \n ||Z - C|| = %2.5e' % (i, err1))
 
         print("-ADMM- Time = %s seconds" % (time.time() - start_time))
 
