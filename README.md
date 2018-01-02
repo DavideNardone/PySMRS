@@ -3,7 +3,7 @@ An unsupervised compressed-sensing technique for fundamental objects selection
 
 # Introduction
 
-This is a python implementation of [Ehsan Elhamifar et. al]. They consider the problem of finding a few representatives for a dataset, (i.e., a subset of data points that efficiently describes the entire dataset). They experiment this techniques on data such as video ([Video Summarization](http://encyclopedia.jrank.org/articles/pages/6930/Video-Summarization.html)) but other type of data may be considered for some experiment.
+This is a python implementation of [(Ehsan Elhamifar et. al)](http://ieeexplore.ieee.org/document/6247852/). They consider the problem of finding a few representatives for a dataset, (i.e., a subset of data points that efficiently describes the entire dataset). They experiment this techniques on data such as video ([Video Summarization](http://encyclopedia.jrank.org/articles/pages/6930/Video-Summarization.html)) but other type of data may be considered for some experiment.
 
 
 # Prerequisites
