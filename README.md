@@ -35,4 +35,4 @@ For any kind of problem, questions, ideas or suggestions, please don't esitate t
 
 # References
 
-[Ehsan Elhamifar et. al]: Elhamifar, Ehsan, Guillermo Sapiro, and Rene Vidal. "See all by looking at a few: Sparse modeling for finding representative objects." Computer Vision and Pattern Recognition (CVPR), 2012 IEEE Conference on. IEEE, 2012.
+[Ehsan Elhamifar et. al]: "See all by looking at a few: Sparse modeling for finding representative objects." Computer Vision and Pattern Recognition (CVPR), 2012 IEEE Conference on. IEEE, 2012.
