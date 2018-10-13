@@ -9,18 +9,15 @@ import time
 
 
 
-def subPlotsRepInd(Y, rep_ind, n_rows=2):
+def saveImages(Y, repInd, dir_output):
 
-    n_cols = int(np.ceil(rep_ind.shape[0]/n_rows))
-    #TODO: set title image
-    for i in xrange(0,len(rep_ind)):
-        _i = int(str(n_rows)+str(n_cols) + str(i+1))
-        plt.subplot(_i), plt.imshow(np.reshape(Y[i],(240,320)), 'gray')
-        plt.xticks([])
-        plt.yticks([])
+    if os.path.exists(dir_output)==False:
+        os.mkdir(dir_output)
 
-
-    plt.show()
+    for rpi in repInd:
+        fig = plt.gcf()
+        plt.imshow(np.reshape(Y[rpi], (240, 320)), 'gray')
+        fig.savefig(dir_output + 'img' + str(rpi) +'.png')
 
 
 def plot_sparsness(C):
@@ -31,7 +28,16 @@ def plot_sparsness(C):
 
 if __name__ == '__main__':
 
-    vidcap = cv2.VideoCapture('/Users/davidenardone/Desktop/video/Society Raffles.mp4')
+    dir_video = 'dataset/Society Raffles.mp4'
+    dir_output = 'output/'
+
+    if os.path.isfile(dir_video) or os.access(dir_video, os.R_OK):
+        print ('Reading video...')
+    else:
+        print "The file is missing or not readable!"
+        sys.exit()
+
+    vidcap = cv2.VideoCapture(dir_video)
 
     success, image = vidcap.read()
     count = 0
@@ -42,16 +48,10 @@ if __name__ == '__main__':
         success, frame = vidcap.read()
 
         if frame is None:
-            print ('None')
+            print ('Done reading')
         else:
             #for convention we convert RGB into a gray scale format
             gray_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-            # print (gray_frame.shape)
-            # sys.exit()
-            # cv2.imshow('image', gray_frame)
-            # cv2.waitKey(0)
-            # plt.show()
-            # sys.exit()
 
             #stacking frames into a matrix
             Y.append(gray_frame.flatten())
@@ -67,8 +67,8 @@ if __name__ == '__main__':
                 PCA=False)
 
     sInd, repInd, C = smrs.smrs()
-
-    subPlotsRepInd(Y,repInd)
+    
+    saveImages(Y,repInd,dir_output)
 
     plot_sparsness(C)
 
