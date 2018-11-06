@@ -42,6 +42,7 @@ if __name__ == '__main__':
     success, image = vidcap.read()
     count = 0
     success = True
+    
     Y = []
     #TODO: Implement video sub-sample
     print ('Reading video...')
@@ -56,8 +57,9 @@ if __name__ == '__main__':
 
             #stacking frames into a matrix
             Y.append(gray_frame.flatten())
-
-    Y = np.asarray(Y)
+    
+    # setting frames on the column and pixels on the rows
+    Y = np.transpose(np.asarray(Y))
 
     print ('Problem size: [%d,%d]' % (Y.shape[0],Y.shape[1]))
     print ('Extracting the representatives frames from the video...It may takes a while...')
