@@ -43,6 +43,7 @@ if __name__ == '__main__':
     count = 0
     success = True
     Y = []
+    #TODO: Implement video sub-sample
     print ('Reading video...')
     while success:
         success, frame = vidcap.read()
