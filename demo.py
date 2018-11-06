@@ -2,7 +2,6 @@ from SMRS import SMRS
 import numpy as np
 np.set_printoptions(threshold=np.inf)
 
-
 if __name__ == '__main__':
 
     n_sample = 500
