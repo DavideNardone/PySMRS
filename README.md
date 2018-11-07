@@ -3,8 +3,11 @@ An unsupervised compressed-sensing technique for fundamental objects selection
 
 # Introduction
 
-This is a python implementation of [(Ehsan Elhamifar et. al)](http://ieeexplore.ieee.org/document/6247852/). They consider the problem of finding a few representatives for a dataset, (i.e., a subset of data points that efficiently describes the entire dataset). They experiment this techniques on data such as video ([Video Summarization](http://encyclopedia.jrank.org/articles/pages/6930/Video-Summarization.html)) but other type of data may be considered for some experiment.
+This is a python implementation of [(Ehsan Elhamifar et. al)](http://ieeexplore.ieee.org/document/6247852/). They consider the problem of finding a few representatives for a dataset, (i.e., a subset of data points that efficiently describes the entire dataset). They experiment this technique on data such as video ([Video Summarization](http://encyclopedia.jrank.org/articles/pages/6930/Video-Summarization.html)) but other type of data may be considered for some experiment.
 
+Video summarization is one of the encouraging methods for effective comprehension of video content by selecting informative frames of the video. The aim is to produce a summary of the video which is interesting to the user and representing the whole video. 
+
+In this project the proposed method exploits a Compressive Sensing method (LASSO) for selecting representative frames of the video. 
 
 # Requirements
 
@@ -22,6 +25,10 @@ then... run one of the following demo:
 `python demo.py (naive example)` <br>
 
 `python demo_video.py` (computationally expensive)
+
+# Example
+
+![Alt Text](/img/vid_3.gif) ![Alt Text](/img/vid_2.gif) ![Alt Text](/img/vid_1.gif) 
 
 # Authors
 
