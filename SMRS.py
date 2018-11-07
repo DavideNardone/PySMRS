@@ -16,10 +16,8 @@ from matplotlib import pyplot as plt
 class SMRS():
 
     def __init__(self, data, alpha=10, norm_type=1,
-                verbose=False, step=5, thr=[10**-8,-1], max_iter=5000,
-                affine=False,
-                normalize=True,
-                PCA=False, npc=10, GPU=False):
+        verbose=False,thrS=0.99, thrP=0.50, step=5, thr=[10**-8,-1], max_iter=5000,
+        affine=False, normalize=True, PCA=False, npc=10, GPU=False, device=0):
 
         self.data = data
         self.alpha = alpha
