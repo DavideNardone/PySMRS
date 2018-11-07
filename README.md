@@ -28,7 +28,7 @@ then... run one of the following demo:
 
 # Example
 
-The following summaries have been produced by setting the threshold *thrP* to 0.7, 06 and 0.5, rispectively.
+The following summaries have been produced by setting the threshold *thrP* to 0.7, 06 and 0.5, respectively.
 
 ![Alt Text](/img/vid_3.gif) ![Alt Text](/img/vid_2.gif) ![Alt Text](/img/vid_1.gif) 
 
