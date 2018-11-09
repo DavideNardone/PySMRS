@@ -41,7 +41,7 @@ https://www.linkedin.com/in/davide-nardone-127428102
 # Contacts
 
 For any kind of problem, questions, ideas or suggestions, please don't esitate to contact me at: 
-- **davide.nardone@studenti.uniparthenope.it**
+- **davide.nardone@live.it**
 
 # References
 
