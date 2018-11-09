@@ -32,6 +32,8 @@ The following summaries have been produced by setting the threshold *thrP* to 0.
 
 ![Alt Text](/img/vid_3.gif) ![Alt Text](/img/vid_2.gif) ![Alt Text](/img/vid_1.gif) 
 
+The original video `Society Raffles.mp4` can be found in the `dataset` folder.
+
 # Authors
 
 Davide Nardone, University of Naples Parthenope, Science and Techonlogies Departement,<br> Msc Applied Computer Science <br/>
