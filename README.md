@@ -16,11 +16,11 @@ In this project the proposed method exploits a Compressive Sensing method (LASSO
   
 # Usage
 
-`git clone https://github.com/DavideNardone/PySMRS.git` <br>
+Runn the following command to clone the master repository into a target directory:
 
-`unzip PySMRS-master.py`
+`git clone https://github.com/DavideNardone/PySMRS.git <target>` <br>
 
-then... run one of the following demo:
+then...run one of the following demo:
 
 `python demo.py (naive example)` <br>
 
