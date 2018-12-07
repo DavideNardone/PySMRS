@@ -19,7 +19,7 @@ def saveImages(Y, repInd, dir_output):
     for i in repInd:
         plt.imshow(np.reshape(Y[:,i],(240,320)), 'gray')
         plt.axis('off')
-        fig.savefig(dir_output + 'frame_' + str(i) +'.png')
+        plt.savefig(dir_output + 'frame_' + str(i) +'.png')
 
 def plot_sparsness(C):
 
